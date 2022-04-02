@@ -1,0 +1,2 @@
+# What is rate Limiting?
+### Rate Limiting simply means limiting the the number of times a user can request a particular resource / service in a given time-frame. To ensure that all the clients of the service use the service optimally. The rate limiting is both a prevention and quality control measure.
