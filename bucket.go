@@ -25,7 +25,7 @@ func (b *Bucket) IsRequestAllowed(tokens int64) bool {
 
 	if b.CurrentTokens >= tokens {
 		b.CurrentTokens = b.CurrentTokens - tokens
-		return true
+		return false
 	}
-	return false
+	return true
 }
