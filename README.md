@@ -3,6 +3,7 @@
 
 ### example
 ```
+
 client := redis.NewClient(&redis.Options{
 		DB:       0,
 		Addr:     "redis:6379",
@@ -26,4 +27,5 @@ client := redis.NewClient(&redis.Options{
 		fmt.Println("Request is not Allowed")
 		os.Exit(1)
 	}
+	
 ```
