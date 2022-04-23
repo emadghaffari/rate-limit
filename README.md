@@ -7,7 +7,6 @@
 client := redis.NewClient(&redis.Options{
 		DB:       0,
 		Addr:     "redis:6379",
-		Username: "",
 		Password: "",
 	})
 	if client == nil {
