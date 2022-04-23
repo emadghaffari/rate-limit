@@ -1,33 +1,55 @@
 package ratelimit
 
 import (
+	"context"
+	"encoding/json"
 	"math"
 	"time"
 
-	"github.com/go-redis/redis"
+	"github.com/go-redis/redis/v8"
 )
 
 type Bucket struct {
 	MaxTokens          int64         `json:"max_tokens"`
-	Rate               int64         `json:"rate"`
 	CurrentTokens      int64         `json:"current_tokens"`
 	LastTokenTimestamp time.Time     `json:"last_token_timestamp"`
-	Duration           time.Duration `json:"duration"`
 	rds                *redis.Client `json:"-"`
+	Identifier         string        `json:"identifier"`
+	Duration           time.Duration `json:"duration"`
 }
 
 // IsRequestAllowed: check the request with the tokens
-func (b *Bucket) IsRequestAllowed(tokens int64) bool {
-	now := time.Now()
-	end := time.Since(b.LastTokenTimestamp)
-
-	tokensTobeAdded := (end.Nanoseconds() * b.Rate) / 1000000000
+func (b *Bucket) IsRequestAllowed(ctx context.Context, tokens int64) bool {
+	tokensTobeAdded := time.Since(b.LastTokenTimestamp).Nanoseconds() / 10e9
 	b.CurrentTokens = int64(math.Min(float64(b.CurrentTokens+tokensTobeAdded), float64(b.MaxTokens)))
-	b.LastTokenTimestamp = now
+	b.LastTokenTimestamp = time.Now()
 
-	if b.CurrentTokens >= tokens {
-		b.CurrentTokens = b.CurrentTokens - tokens
-		return false
+	if b.CurrentTokens < b.MaxTokens {
+		b.IncreaseToken(ctx, tokens)
+		return true
 	}
-	return true
+
+	return false
+}
+
+// IncreaseToken: increase current token number in redis
+func (b *Bucket) IncreaseToken(ctx context.Context, tokens int64) error {
+	b.CurrentTokens = b.CurrentTokens + tokens
+	if b.CurrentTokens > b.MaxTokens {
+		b.CurrentTokens = b.MaxTokens
+	}
+
+	bts, _ := json.Marshal(b)
+	return b.rds.Set(context.Background(), b.Identifier, bts, b.Duration).Err()
+}
+
+// DecreaseToken: decrease current token number in redis
+func (b *Bucket) DecreaseToken(ctx context.Context, tokens int64) error {
+	b.CurrentTokens = b.CurrentTokens - tokens
+	if b.CurrentTokens < 0 {
+		b.CurrentTokens = 0
+	}
+
+	bts, _ := json.Marshal(b)
+	return b.rds.Set(context.Background(), b.Identifier, bts, b.Duration).Err()
 }
