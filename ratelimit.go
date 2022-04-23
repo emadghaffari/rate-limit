@@ -45,9 +45,9 @@ func (b *RateLimit) GetBucket(ctx context.Context, identifier string) Bucket {
 		Duration:           b.duration,
 	}
 
-	brds := b.rds.Get(ctx, identifier).Val()
+	brds := b.rds.Get(identifier).Val()
 	if brds == "" {
-		b.rds.Set(ctx, identifier, bucket, b.duration)
+		b.rds.Set(identifier, bucket, b.duration)
 		return bucket
 	}
 
