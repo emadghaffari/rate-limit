@@ -15,16 +15,27 @@ client := redis.NewClient(&redis.Options{
 	}
 	ratelimit := ratelimit.New(context.Background(), ratelimit.Config{
 		Redis:     client,
-		MaxTokens: 100,
+		MaxTokens: 200,
 		Rate:      10,
-		Duration:  time.Hour,
+		Duration:  time.Minute,
 	})
-	bucket := ratelimit.GetBucket(context.Background(), "Emad")
-	fmt.Printf("\n%+v\n", bucket)
 
-	if !bucket.IsRequestAllowed(5) {
-		fmt.Println("Request is not Allowed")
+	identifier := "Emad"
+	bucket, err := ratelimit.GetBucket(context.Background(), identifier)
+	if err != nil {
+		fmt.Println("error: ", err.Error())
 		os.Exit(1)
+	}
+
+	for i := 0; i < 100; i++ {
+		time.Sleep(time.Millisecond * 250)
+		if !bucket.IsRequestAllowed(context.Background(), 10) {
+			fmt.Printf("\n\n Request is not Allowed %d\n\n", i)
+			// os.Exit(1)
+		}
+		if i%2 == 0 {
+			bucket.DecreaseToken(context.Background(), 10)
+		}
 	}
 	
 ```
