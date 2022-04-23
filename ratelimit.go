@@ -3,10 +3,11 @@ package ratelimit
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
-	"github.com/go-redis/redis"
+	"github.com/go-redis/redis/v8"
 )
 
 type Config struct {
@@ -18,7 +19,6 @@ type Config struct {
 
 func New(ctx context.Context, conf Config) RateLimit {
 	return RateLimit{
-		rate:               conf.Rate,
 		maxTokens:          conf.MaxTokens,
 		lastTokenTimestamp: time.Now(),
 		rds:                conf.Redis,
@@ -29,32 +29,34 @@ func New(ctx context.Context, conf Config) RateLimit {
 type RateLimit struct {
 	rds                *redis.Client
 	maxTokens          int64
-	rate               int64
 	currentTokens      int64
 	lastTokenTimestamp time.Time
 	duration           time.Duration
 }
 
-func (b *RateLimit) GetBucket(ctx context.Context, identifier string) Bucket {
+func (b *RateLimit) GetBucket(ctx context.Context, identifier string) (Bucket, error) {
 	bucket := Bucket{
 		rds:                b.rds,
 		MaxTokens:          b.maxTokens,
-		Rate:               b.rate,
 		CurrentTokens:      b.currentTokens,
 		LastTokenTimestamp: b.lastTokenTimestamp,
+		Identifier:         identifier,
 		Duration:           b.duration,
 	}
 
-	brds, err := b.rds.Get(identifier).Result()
+	brds, err := b.rds.Get(ctx, identifier).Result()
 	if err != nil && err == redis.Nil {
-		b.rds.Set(identifier, bucket, b.duration)
-		return bucket
+		bts, _ := json.Marshal(bucket)
+		if err := b.rds.Set(ctx, identifier, bts, b.duration).Err(); err != nil {
+			return bucket, errors.New("invalid response from redis: " + err.Error())
+		}
+		return bucket, nil
 	}
 
 	if err := json.Unmarshal([]byte(brds), &bucket); err != nil {
 		fmt.Println("invalid response from redis")
-		return bucket
+		return bucket, errors.New("invalid response from redis")
 	}
 
-	return bucket
+	return bucket, nil
 }
