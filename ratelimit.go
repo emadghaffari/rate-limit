@@ -45,8 +45,8 @@ func (b *RateLimit) GetBucket(ctx context.Context, identifier string) Bucket {
 		Duration:           b.duration,
 	}
 
-	brds := b.rds.Get(identifier).Val()
-	if brds == "" {
+	brds, err := b.rds.Get(identifier).Result()
+	if err != nil && err == redis.Nil {
 		b.rds.Set(identifier, bucket, b.duration)
 		return bucket
 	}
